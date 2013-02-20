@@ -29,7 +29,7 @@ git clone git://github.com/01org/media-service-upnp.git
 Media-service-demo can be run directly from the source repository
 simply by typing.
 
-src/media-service-upnp
+src/media-service-demo.py
 
 It can be installed on your system via the supplied setup.py script.
 
