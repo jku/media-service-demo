@@ -122,6 +122,11 @@ class GStreamerWindow(PlayWindowBase):
         self.__play_pause_button.add(self.__play_pause_image)
 
         self.__scale = gtk.HScale()
+        self.__adjustment = gtk.Adjustment(0, 0, 0,
+                                           1.0, 30.0, 1.0)
+        self.__adjustment.connect("value-changed", self.__adjusted)
+        self.__scale.set_adjustment(self.__adjustment)
+        self.__scale.connect("format-value", self.__format_time)
 
         button_bar.pack_start(self.__play_pause_button, True, False, 0)
 
@@ -129,10 +134,7 @@ class GStreamerWindow(PlayWindowBase):
         self.private_area.pack_start(button_bar, False, False, 0)
 
         self.get_container().show_all()
-        self.__scale.hide()
-        self.__duration = -1
         self.__update_pos_id = 0
-        self.__adjustment = None
         self.__state = gst.STATE_NULL
         self.player.set_state(gst.STATE_PLAYING)
 
@@ -172,21 +174,13 @@ class GStreamerWindow(PlayWindowBase):
         return str(datetime.timedelta(seconds=pos))
 
     def __update_ui(self):
-        if self.__duration == -1 and (self.__state == gst.STATE_PLAYING or
-                                      self.__state == gst.STATE_PAUSED):
+        if (self.__state > gst.STATE_NULL and
+            self.__adjustment.get_upper() == 0.0):
            try:
                duration = self.player.query_duration(gst.FORMAT_TIME,
                                     None)[0]
                if duration != -1:
-                   self.__duration  = duration / 1000000000
-                   self.__adjustment = gtk.Adjustment(0, 0,
-                                                      self.__duration,
-                                                      .5, .5, 0)
-                   self.__scale.set_adjustment(self.__adjustment)
-                   self.__adjustment.connect("value-changed",
-                                             self.__adjusted)
-                   self.__scale.connect("format-value", self.__format_time)
-                   self.__scale.show()
+                   self.__adjustment.set_upper(duration / 1000000000)
            except Exception:
                pass
 
