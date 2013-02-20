@@ -114,13 +114,6 @@ class GStreamerWindow(PlayWindowBase):
 
         button_bar = gtk.HBox(True, 0)
 
-        self.__stop_button = gtk.Button()
-        self.__stop_button.connect("clicked", self.__stop)
-        stop_image = gtk.Image()
-        stop_image.set_from_stock(gtk.STOCK_MEDIA_STOP,
-                                  gtk.ICON_SIZE_BUTTON)
-        self.__stop_button.add(stop_image)
-
         self.__play_pause_button = gtk.Button()
         self.__play_pause_button.connect("clicked", self.__play_pause)
         self.__play_pause_image = gtk.Image()
@@ -130,8 +123,7 @@ class GStreamerWindow(PlayWindowBase):
 
         self.__scale = gtk.HScale()
 
-        button_bar.pack_start(self.__play_pause_button, True, True, 0)
-        button_bar.pack_start(self.__stop_button, True, True, 0)
+        button_bar.pack_start(self.__play_pause_button, True, False, 0)
 
         self.private_area.pack_start(self.__scale, False, False, 0)
         self.private_area.pack_start(button_bar, False, False, 0)
@@ -143,33 +135,21 @@ class GStreamerWindow(PlayWindowBase):
         self.__adjustment = None
         self.player.set_state(gst.STATE_PLAYING)
 
-    def __stop_or_pause(self):
-        self.__play_pause_image.set_from_stock(gtk.STOCK_MEDIA_PLAY,
-                                               gtk.ICON_SIZE_BUTTON)
-        self.__scale.set_sensitive(True)
-        if self.__update_pos_id != 0:
-            glib.source_remove(self.__update_pos_id)
-            self.__update_pos_id = 0
-
-    def __stop(self, button):
-        self.player.set_state(gst.STATE_NULL)
-        self.__stop_button.set_sensitive(False)
-        self.__stop_or_pause()
-        if self.__adjustment:
-            self.__adjustment.set_value(0)
-
     def __play_pause(self, button):
-        print (self.player.get_state()[1])
         if (self.player.get_state()[1] == gst.STATE_PLAYING):
             self.player.set_state(gst.STATE_PAUSED)
-            self.__stop_or_pause()
+            self.__play_pause_image.set_from_stock (gtk.STOCK_MEDIA_PLAY,
+                                                    gtk.ICON_SIZE_BUTTON)
+            self.__scale.set_sensitive(True)
+            if self.__update_pos_id != 0:
+                glib.source_remove(self.__update_pos_id)
+                self.__update_pos_id = 0
         else:
             self.player.set_state(gst.STATE_PLAYING)
             self.__play_pause_image.set_from_stock(gtk.STOCK_MEDIA_PAUSE,
                                                    gtk.ICON_SIZE_BUTTON)
 
             self.__scale.set_sensitive(False)
-            self.__stop_button.set_sensitive(True)
 
     def __update_pos(self, user_data):
         try:
@@ -200,9 +180,7 @@ class GStreamerWindow(PlayWindowBase):
         return str(datetime.timedelta(seconds=pos))
 
     def gs_message_cb(self, bus, message):
-        if message.type == gst.MESSAGE_EOS or message.type == gst.MESSAGE_ERROR:
-            self.__stop(None)
-        elif message.type == gst.MESSAGE_STATE_CHANGED:
+        if message.type == gst.MESSAGE_STATE_CHANGED:
             (old, state, pending) =  message.parse_state_changed()
             if self.__duration == -1 and (state == gst.STATE_PLAYING or
                                           state == gst.STATE_PAUSED):
