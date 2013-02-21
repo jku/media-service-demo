@@ -134,7 +134,6 @@ class SearchModel(gtk.GenericTreeModel):
 
     def on_get_value(self, rowref, col):
         retval = None
-        self.__get_search_items(rowref, SearchModel.buffer_size)
         if rowref < self.__max_items and self.__items and self.__items[rowref]:
             key = SearchModel.columns[col][0]
             if key in self.__items[rowref]:
