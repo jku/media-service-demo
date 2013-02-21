@@ -65,10 +65,6 @@ class SearchModel(gtk.ListStore):
         return search_string
 
     def __on_search_reply(self, items, max_items):
-        max_items = max(max_items, len(items))
-
-        if max_items != self.__max_items:
-            self.__max_items = max_items
         for item in items:
             try:
                 date = dateutil.parser.parse(item['Date'].strftime("%x"))
@@ -81,22 +77,28 @@ class SearchModel(gtk.ListStore):
                          item.get('Path', ''),
                          item.get('URLs', [''])[0]])
 
+        self.__result_count = self.__result_count + len(items)
+
+        # Only call search again if it looks like server has more results
+        if (len(items) > 0 and
+            (max_items == 0 or self.__result_count < max_items)):
+            self.__get_search_items()
+
     def __on_search_error(self, error):
         print "Search failed: %s" % error
 
-    def __get_search_items(self, start, count):
-        sort_descriptor = self.__sort_order.get_upnp_sort_order()
+    def __get_search_items(self):
         self.__root.search(self.__search_string,
-                           start, count,
+                           self.__result_count, SearchModel.buffer_size,
                            SearchModel.filter,
-                           sort_descriptor,
+                           self.__sort_order.get_upnp_sort_order(),
                            self.__on_search_reply,
                            self.__on_search_error)
 
     def flush(self):
         self.clear()
-        self.__max_items = 0
-        self.__get_search_items(0, SearchModel.buffer_size)
+        self.__result_count = 0
+        self.__get_search_items()
 
     def __init__(self, root, query, images, videos, music, sort_order):
         gtk.ListStore.__init__(self,
@@ -106,7 +108,6 @@ class SearchModel(gtk.ListStore):
                                gobject.TYPE_STRING, # Type
                                gobject.TYPE_STRING, # Path
                                gobject.TYPE_STRING) # URLs[0]
-        self.__max_items = 0
         self.__sort_order = sort_order
         self.__root = root
         self.__search_string = SearchModel.__create_query_string(query, images,
