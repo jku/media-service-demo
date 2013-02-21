@@ -64,33 +64,34 @@ class SearchModel(gtk.ListStore):
 
         return search_string
 
+    def __on_search_reply(self, items, max_items):
+        max_items = max(max_items, len(items))
+
+        if max_items != self.__max_items:
+            self.__max_items = max_items
+        for item in items:
+            try:
+                date = dateutil.parser.parse(item['Date'].strftime("%x"))
+            except:
+                date = ''
+            self.append([item.get('DisplayName', ''),
+                         item.get('Artist', ''),
+                         date,
+                         item.get('Type').capitalize().split('.', 1)[0],
+                         item.get('Path', ''),
+                         item.get('URLs', [''])[0]])
+
+    def __on_search_error(self, error):
+        print "Search failed: %s" % error
+
     def __get_search_items(self, start, count):
-        try:
-            sort_descriptor = self.__sort_order.get_upnp_sort_order()
-            items, max_items = self.__root.search(self.__search_string,
-                                                  start, count,
-                                                  SearchModel.filter,
-                                                  sort_descriptor)
-
-            max_items = max(max_items, len(items))
-
-            if max_items != self.__max_items:
-                self.__max_items = max_items
-            for item in items:
-                try:
-                    date = dateutil.parser.parse(item['Date'].strftime("%x"))
-                except:
-                    date = ''
-                self.append([item.get('DisplayName', ''),
-                             item.get('Artist', ''),
-                             date,
-                             item.get('Type').capitalize().split('.', 1)[0],
-                             item.get('Path', ''),
-                             item.get('URLs', [''])[0]])
-                start = start + 1
-        except Exception as exc:
-            print "Search failed: %s" % exc
-            pass
+        sort_descriptor = self.__sort_order.get_upnp_sort_order()
+        self.__root.search(self.__search_string,
+                           start, count,
+                           SearchModel.filter,
+                           sort_descriptor,
+                           self.__on_search_reply,
+                           self.__on_search_error)
 
     def flush(self):
         self.clear()
