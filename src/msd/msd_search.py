@@ -21,6 +21,7 @@
 import pygtk
 pygtk.require('2.0')
 import gtk
+import gobject
 import cStringIO
 import dateutil.parser
 import datetime
@@ -28,11 +29,8 @@ import datetime
 from msd_sort_order import *
 from msd_upnp import *
 
-class SearchModel(gtk.GenericTreeModel):
-    columns = (("DisplayName", str), ("Artist", str), ("Date", str),
-               ("Type",str), ("Path", str), ("URLs", str))
-    filter = ["Artist", "DisplayName", "URLs", "Date", "Path",
-              "Type"]
+class SearchModel(gtk.ListStore):
+    filter = ["Artist", "DisplayName", "URLs", "Date", "Path", "Type"]
 
     buffer_size = 50
 
@@ -67,129 +65,49 @@ class SearchModel(gtk.GenericTreeModel):
         return search_string
 
     def __get_search_items(self, start, count):
-        if self.__items:
-            end = start
-            while (end < start + SearchModel.buffer_size and
-                   end < self.__max_items and not self.__items[end]):
-                end = end + 1
-        else:
-            end = count
+        try:
+            sort_descriptor = self.__sort_order.get_upnp_sort_order()
+            items, max_items = self.__root.search(self.__search_string,
+                                                  start, count,
+                                                  SearchModel.filter,
+                                                  sort_descriptor)
 
-        if start < end:
-            count = end - start
-            try:
-                sort_descriptor = self.__sort_order.get_upnp_sort_order()
-                items, max_items = self.__root.search(self.__search_string,
-                                                      start, count,
-                                                      SearchModel.filter,
-                                                      sort_descriptor)
+            max_items = max(max_items, len(items))
 
-                max_items = max(max_items, len(items))
-
-                # TODO: I need to inform list view if max item has changed?
-
-                if max_items != self.__max_items:
-                    self.__max_items = max_items
-                    self.__items = [None] * self.__max_items
-                for item in items:
-                    self.__items[start] = item
-                    start = start + 1
-            except Exception:
-                pass
-
-    def __init__(self, root, query, images, videos, music, sort_order):
-        gtk.GenericTreeModel.__init__(self)
-
-        self.__items = None
-        self.__max_items = 0
-        self.__root = root
-        self.__sort_order = sort_order
-        self.__search_string = SearchModel.__create_query_string(query, images,
-                                                                 videos, music)
-        if self.__search_string:
-            self.__get_search_items(0, SearchModel.buffer_size)
+            if max_items != self.__max_items:
+                self.__max_items = max_items
+            for item in items:
+                try:
+                    date = dateutil.parser.parse(item['Date'].strftime("%x"))
+                except:
+                    date = ''
+                self.append([item.get('DisplayName', ''),
+                             item.get('Artist', ''),
+                             date,
+                             item.get('Type').capitalize().split('.', 1)[0],
+                             item.get('Path', ''),
+                             item.get('URLs', [''])[0]])
+                start = start + 1
+        except Exception as exc:
+            print "Search failed: %s" % exc
+            pass
 
     def flush(self):
-        i = 0
-        while i < self.__max_items:
-            self.__items[i] = None
-            i = i + 1
+        self.clear()
+        self.__max_items = 0
+        self.__get_search_items(0, SearchModel.buffer_size)
 
-    def on_get_flags(self):
-        return gtk.TREE_MODEL_LIST_ONLY | gtk.TREE_MODEL_ITERS_PERSIST
-
-    def on_get_n_columns(self):
-        return len(SearchModel.columns)
-
-    def on_get_column_type(self, n):
-        return SearchModel.columns[n][1]
-
-    def on_get_iter(self, path):
-        if path[0] >= self.__max_items:
-            raise ValueError("Invalid Path")
-        return path[0]
-
-    def on_get_path(self, rowref):
-        return (rowref, )
-
-    def on_get_value(self, rowref, col):
-        retval = None
-        if rowref < self.__max_items and self.__items and self.__items[rowref]:
-            key = SearchModel.columns[col][0]
-            if key in self.__items[rowref]:
-                data = self.__items[rowref][key]
-                if col == 2:
-                    date = dateutil.parser.parse(data)
-                    retval = date.strftime("%x")
-                elif col == 3:
-                    data = data[0].upper() + data[1:]
-                    period = data.find('.')
-                    if period >=0:
-                        retval = data[:period]
-                    else:
-                        retval = data
-                elif col == 5:
-                    retval = data[0]
-                else:
-                    retval = data
-            elif col == 1:
-                retval = "Unknown"
-            elif col == 2:
-                retval = datetime.date.today().strftime("%x")
-            else:
-                retval = ""
-        else:
-            retval = ""
-
-        return retval
-
-    def on_iter_next(self, rowref):
-        retval = None
-        rowref = rowref + 1
-        if rowref < self.__max_items:
-            retval = rowref
-        return retval
-
-    def on_iter_children(self, rowref):
-        retval = 0
-        if rowref:
-            retval =  None
-        return retval
-
-    def on_iter_has_child(self, rowref):
-        return False
-
-    def on_iter_n_children(self, rowref):
-        retval = 0
-        if not rowref:
-            retval = self.__max_items
-        return retval
-
-    def on_iter_nth_child(self, rowref, child):
-        retval = None
-        if not rowref and child < self.__max_items:
-            retval = child
-        return retval
-
-    def on_iter_parent(self, child):
-        return None
+    def __init__(self, root, query, images, videos, music, sort_order):
+        gtk.ListStore.__init__(self,
+                               gobject.TYPE_STRING, # DisplayName
+                               gobject.TYPE_STRING, # Artist
+                               gobject.TYPE_STRING, # Date
+                               gobject.TYPE_STRING, # Type
+                               gobject.TYPE_STRING, # Path
+                               gobject.TYPE_STRING) # URLs[0]
+        self.__max_items = 0
+        self.__sort_order = sort_order
+        self.__root = root
+        self.__search_string = SearchModel.__create_query_string(query, images,
+                                                                 videos, music)
+        self.flush()

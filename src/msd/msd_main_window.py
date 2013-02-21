@@ -147,7 +147,6 @@ class MainWindow(object):
         ctype = model.get_value(rowref, 3)
         path = model.get_value(rowref, 4)
         url = model.get_value(rowref, 5)
-
         if url != "":
             if ctype == "Image":
                 self.__window.remove(self.__main_view)
