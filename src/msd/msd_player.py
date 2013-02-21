@@ -39,11 +39,11 @@ class PlayWindowBase(object):
         self.__container = gtk.VBox(False, 0)
         self.drawing_area = gtk.DrawingArea()
         self.private_area = gtk.VBox(True, 0)
-        self.ok_button = gtk.Button("Close")
-        self.ok_button.connect("clicked", self.quit)
+        close_button = gtk.Button("Close")
+        close_button.connect("clicked", self.quit)
         self.__container.pack_start(self.drawing_area, True, True, 0)
         self.__container.pack_start(self.private_area, False, False, 0)
-        self.__container.pack_start(self.ok_button, False, False, 0)
+        self.__container.pack_start(close_button, False, False, 0)
 
     def quit(self, button):
         self.__close_window()
@@ -112,9 +112,10 @@ class GStreamerWindow(PlayWindowBase):
 
         self.player.set_property("uri", url)
 
-        button_bar = gtk.HBox(True, 0)
+        button_bar = gtk.HBox(False, 6)
 
         self.__play_pause_button = gtk.Button()
+        self.__play_pause_button.set_size_request(40, 40)
         self.__play_pause_button.connect("clicked", self.__play_pause)
         self.__play_pause_image = gtk.Image()
         self.__play_pause_image.set_from_stock(gtk.STOCK_MEDIA_PAUSE,
@@ -128,9 +129,9 @@ class GStreamerWindow(PlayWindowBase):
         self.__scale.set_adjustment(self.__adjustment)
         self.__scale.connect("format-value", self.__format_time)
 
-        button_bar.pack_start(self.__play_pause_button, True, False, 0)
+        button_bar.pack_start(self.__play_pause_button, False, False, 6)
+        button_bar.pack_end(self.__scale, True, True, 6)
 
-        self.private_area.pack_start(self.__scale, False, False, 0)
         self.private_area.pack_start(button_bar, False, False, 0)
 
         self.get_container().show_all()
